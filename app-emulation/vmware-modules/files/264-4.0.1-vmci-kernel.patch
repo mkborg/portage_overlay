@@ -1,0 +1,16 @@
+--- old/vmci-only/linux/vmciKernelIf.c	2016-01-25 11:42:42.000000000 +0300
++++ new/vmci-only/linux/vmciKernelIf.c	2016-01-25 11:56:50.000000000 +0300
+@@ -1172,11 +1172,11 @@
+       }
+ 
+       if (isIovec) {
+-         struct iovec *iov = (struct iovec *)src;
++         struct msghdr *msg = src;
+          int err;
+ 
+          /* The iovec will track bytesCopied internally. */
+-         err = memcpy_fromiovec((uint8 *)va + pageOffset, iov, toCopy);
++         err = memcpy_from_msg((uint8 *)va + pageOffset, msg, toCopy);
+          if (err != 0) {
+             kunmap(kernelIf->page[pageIndex]);
+             return VMCI_ERROR_INVALID_ARGS;

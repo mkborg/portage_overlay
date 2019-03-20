@@ -1,0 +1,33 @@
+--- /old/geany-plugins-1.24/geanynumberedbookmarks/src/geanynumberedbookmarks.c.2013-03-10 20:58:44.000000000 +0400
++++ /new/geany-plugins-1.24/geanynumberedbookmarks/src/geanynumberedbookmarks.c	2014-09-26 18:30:22.000000000 +0400
+@@ -1432,6 +1432,7 @@
+ {
+ 	GeanyDocument *doc;
+ 	gint i;
++	guint state;
+ 
+ 	doc=document_get_current();
+ 	if(doc==NULL)
+@@ -1440,8 +1441,12 @@
+ 	if(ev->type!=GDK_KEY_RELEASE)
+ 		return FALSE;
+ 
++	// ignore everything except "control", "shift" and "alt"
++	// "alt" is GDK_MOD1_MASK
++	state = ev->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK);
++
+ 	/* control and number pressed */
+-	if(ev->state==4)
++	if(state==GDK_CONTROL_MASK)
+ 	{
+ 		i=((gint)(ev->keyval))-'0';
+ 		if(i<0 || i>9)
+@@ -1451,7 +1456,7 @@
+ 		return TRUE;
+ 	}
+ 	/* control+shift+number */
+-	if(ev->state==5) {
++	if(state==(GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+ 		/* could use hardware keycode instead of keyvals but if unable to get keyode then don't
+ 		 * have logical default to fall back on
+ 		*/

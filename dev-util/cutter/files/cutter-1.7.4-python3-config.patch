@@ -1,0 +1,20 @@
+--- a/src/Cutter.pro	2019-01-22 00:29:42.000000000 +0300
++++ b/src/Cutter.pro	2019-01-24 11:53:32.004100638 +0300
+@@ -104,11 +104,13 @@
+         LIBS += -F$$PYTHON_FRAMEWORK_DIR -framework Python
+         DEFINES += MACOS_PYTHON_FRAMEWORK_BUNDLED
+     } else {
+-        CONFIG += link_pkgconfig
+-        !packagesExist(python3) {
+-            error("ERROR: Python 3 could not be found. Make sure it is available to pkg-config.")
++        system(type python3-config) {
++            LIBS += $$system(python3-config --libs)
++            TMP = $$system(python3-config --includes)
++            INCLUDEPATH += $$replace(TMP, "-I", "")
++        } else {
++            error("ERROR: Python 3 could not be found. Make sure it is available to python3-config.")
+         }
+-        PKGCONFIG += python3
+     }
+ }
+ 
