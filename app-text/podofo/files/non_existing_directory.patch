@@ -1,0 +1,20 @@
+Description: Before CMake 3.12, trying to copy a non-existing dir didn't fail
+Author: Juhani Numminen <juhaninumminen0@gmail.com>
+Acked-By: Mattia Rizzolo <mattia@debian.org>
+Bug: https://sourceforge.net/p/podofo/tickets/29/
+Bug-Debian: https://bugs.debian.org/906781
+Last-Update: 2018-08-27
+
+--- a/test/TokenizerTest/CMakeLists.txt
++++ b/test/TokenizerTest/CMakeLists.txt
+@@ -2,10 +2,3 @@
+ TARGET_LINK_LIBRARIES(TokenizerTest ${PODOFO_LIB} ${PODOFO_LIB_DEPENDS})
+ SET_TARGET_PROPERTIES(TokenizerTest PROPERTIES COMPILE_FLAGS "${PODOFO_CFLAGS}")
+ ADD_DEPENDENCIES(TokenizerTest ${PODOFO_DEPEND_TARGET})
+-
+-# Copy the test samples over to the build tree
+-ADD_CUSTOM_COMMAND(
+-    TARGET TokenizerTest
+-    POST_BUILD
+-    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/objects" "${CMAKE_CURRENT_BINARY_DIR}/objects"
+-    )

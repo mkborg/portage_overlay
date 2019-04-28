@@ -1,0 +1,31 @@
+Description: Fix pkg-config to actually work with the way podofo is installed
+Author: Mattia Rizzolo <mattia@debian.org>
+Bug: https://sourceforge.net/p/podofo/tickets/30
+Bug-Debian: https://bugs.debian.org/908134
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/libpodofo/+bug/1792407
+Last-Update: 2018-09-18
+
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -314,10 +314,10 @@
+         MESSAGE("Pkg-config found, creating a pkg-config file for linking against shared library.")
+         CONFIGURE_FILE(
+           "libpodofo.pc.in"
+-          "${PoDoFo_BINARY_DIR}/libpodofo-${PODOFO_VERSION_MAJOR}.pc"
++          "${PoDoFo_BINARY_DIR}/libpodofo.pc"
+           @ONLY)
+         INSTALL(
+-          FILES "${PoDoFo_BINARY_DIR}/libpodofo-${PODOFO_VERSION_MAJOR}.pc"
++          FILES "${PoDoFo_BINARY_DIR}/libpodofo.pc"
+           DESTINATION "${LIBDIRNAME}/pkgconfig")
+       ELSE(PKG_CONFIG_FOUND)
+         MESSAGE("Pkg-config not found. No pkg-config file will be created.")
+--- a/src/libpodofo.pc.in
++++ b/src/libpodofo.pc.in
+@@ -6,5 +6,5 @@
+ Name: @CMAKE_PROJECT_NAME@
+ Description: A C++ library to work with the PDF file format
+ Version: @PODOFO_VERSION@
+-Libs: -L${libdir} -lpodofo-@PODOFO_VERSION_MAJOR@
++Libs: -L${libdir} -lpodofo
+ Cflags: -I${includedir}

@@ -1,0 +1,20 @@
+Description: workaround bug that makes impossible to link the test with -fvisibility=hidden
+ This is a workaround, this class is *not* meant to be public.  It doesn't change
+ the status quo from the 0.9.5 version as there we didn't build libpodofo with
+ -fvisibility=hidden, so this was exposed anyway, and I consider this solution
+ better than enabling global symbol visibility again.
+Author: Mattia Rizzolo <mattia@debian.org>
+Bug: https://sourceforge.net/p/podofo/tickets/28
+Last-Update: 2018-08-27
+
+--- a/src/base/PdfXRefStreamParserObject.h
++++ b/src/base/PdfXRefStreamParserObject.h
+@@ -48,7 +48,7 @@
+  *
+  * It is mainly here to make PdfParser more modular.
+  */
+-class PdfXRefStreamParserObject : public PdfParserObject {
++class PODOFO_API PdfXRefStreamParserObject : public PdfParserObject {
+ public:
+ 
+     /** Parse the object data from the given file handle starting at
