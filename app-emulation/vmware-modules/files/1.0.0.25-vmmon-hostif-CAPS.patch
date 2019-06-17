@@ -1,0 +1,131 @@
+--- vmmon-only/linux/hostif.c	2009-08-15 06:20:43.000000000 +0400
++++ vmmon-only/linux/hostif.c	2009-09-22 15:59:59.000000000 +0400
+@@ -90,6 +90,83 @@
+ 
+ static COMPAT_DECLARE_COMPLETION(fastClockExited);
+ 
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
++static inline
++void compat_cap_raise(int cap)
++{
++   cap_raise(current->cap_effective, cap);
++}
++#else
++static
++void compat_cap_raise(int cap)
++{
++   struct cred *new_cred;
++
++   new_cred = prepare_creds();
++   if (new_cred != NULL)
++   {
++      cap_raise(new_cred->cap_effective, cap);
++      commit_creds(new_cred);
++   }
++   else
++   {
++      Log("compat_cap_raise(%d) prepare_creds(): Out of memory\n", cap);
++   }
++}
++#endif
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
++static inline
++void compat_cap_lower(int cap)
++{
++   cap_lower(current->cap_effective, cap);
++}
++#else
++static
++void compat_cap_lower(int cap)
++{
++   struct cred *new_cred;
++
++   new_cred = prepare_creds();
++   if (new_cred != NULL)
++   {
++      cap_lower(new_cred->cap_effective, cap);
++      commit_creds(new_cred);
++   }
++   else
++   {
++      Log("compat_cap_lower(%d) prepare_creds(): Out of memory\n", cap);
++   }
++}
++#endif
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
++static inline
++void compat_set_fsuid(int fsuid)
++{
++   current->fsuid = fsuid;
++}
++#else
++static
++void compat_set_fsuid(int fsuid)
++{
++   struct cred *new_cred;
++
++   new_cred = prepare_creds();
++   if (new_cred != NULL)
++   {
++      new_cred->fsuid = fsuid;
++      commit_creds(new_cred);
++   }
++   else
++   {
++      Log("compat_set_fsuid(%d) prepare_creds(): Out of memory\n", fsuid);
++   }
++}
++#endif
++
++
+ /*
+  * First Page Locking strategy
+  * ---------------------------
+@@ -3456,6 +3533,7 @@
+    oldFS = get_fs();
+    set_fs(KERNEL_DS);
+    compat_allow_signal(SIGKILL);
++   //Warning("[%u:%s] WARNING: invoking compat_set_user_nice(%d)\n", __LINE__, __FUNCTION__, linuxState.fastClockPriority);
+    compat_set_user_nice(current, linuxState.fastClockPriority);
+ 
+    while (linuxState.fastClockRate > HZ + HZ/16) {
+@@ -3575,15 +3653,36 @@
+    if (rate > HZ + HZ/16) {
+       if (!linuxState.fastClockThread) {
+          struct file *filp;
++         int fsuid;
+          int res;
+          long pid;
++         Bool cap;
+ 
++         fsuid = current_fsuid();
++         if (fsuid) {
++            //Warning("[%u:%s] WARNING: current fsuid=%d\n", __LINE__, __FUNCTION__, fsuid);
++            //Warning("[%u:%s] WARNING: temporarily activating fsuid(0)\n", __LINE__, __FUNCTION__);
++            compat_set_fsuid(0);
++         }
+          filp = filp_open("/dev/rtc", O_RDONLY, 0);
++         if (fsuid) {
++            //Warning("[%u:%s] WARNING: deactivating temporary fsuid(0)\n", __LINE__, __FUNCTION__);
++            compat_set_fsuid(fsuid);
++         }
+          if (IS_ERR(filp)) {
+             Warning("/dev/rtc open failed: %d\n", (int)(VA)filp);
+             return -(int)(VA)filp;
+          }
++         cap = cap_raised(current_cap(), CAP_SYS_RESOURCE);
++         if (!cap) {
++            //Warning("[%u:%s] WARNING: temporarily raising capability CAP_SYS_RESOURCE\n", __LINE__, __FUNCTION__);
++            compat_cap_raise(CAP_SYS_RESOURCE);
++         }
+          res = HostIFDoIoctl(filp, RTC_PIE_ON, 0);
++         if (!cap) {
++            //Warning("[%u:%s] WARNING: withdrawing temporary capability CAP_SYS_RESOURCE\n", __LINE__, __FUNCTION__);
++            compat_cap_lower(CAP_SYS_RESOURCE);
++         }
+          if (res < 0) {
+             Warning("/dev/rtc enable interrupt failed: %d\n", res);
+             compat_filp_close(filp, current->files);

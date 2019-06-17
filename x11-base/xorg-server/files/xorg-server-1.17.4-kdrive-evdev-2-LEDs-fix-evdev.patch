@@ -1,0 +1,29 @@
+--- old/xorg-server-1.17.4/hw/kdrive/linux/evdev.c	2015-12-16 17:21:09.000000000 +0300
++++ new/xorg-server-1.17.4/hw/kdrive/linux/evdev.c	2015-12-16 17:23:18.000000000 +0300
+@@ -564,10 +564,16 @@
+ static void
+ EvdevKbdLeds(KdKeyboardInfo * ki, int leds)
+ {
+-/*    struct input_event event;
++    struct input_event event;
+     Kevdev             *ke;
++    if (!ki) return; // This shouldn't happen but just for safety.
+ 
+-    ki->driverPrivate = ke;
++    ke = ki->driverPrivate;
++    if (!ke) {
++	ErrorF("[%s:%u:%s] can't update LEDs of _disabled_ evdev keyboard\n",
++		__FILE__, __LINE__, __FUNCTION__);
++	return;
++    }
+ 
+     memset(&event, 0, sizeof(event));
+ 
+@@ -590,7 +596,6 @@
+     event.code = LED_COMPOSE;
+     event.value = leds & (1 << 3) ? 1 : 0;
+     write(ke->fd, (char *) &event, sizeof(event));
+-*/
+ }
+ 
+ static void

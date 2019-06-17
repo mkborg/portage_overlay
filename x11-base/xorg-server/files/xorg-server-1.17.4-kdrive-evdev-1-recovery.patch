@@ -1,0 +1,158 @@
+--- old/xorg-server-1.17.4/hw/kdrive/linux/evdev.c	2015-10-27 20:35:09.000000000 +0300
++++ new/xorg-server-1.17.4/hw/kdrive/linux/evdev.c	2015-12-16 17:21:09.000000000 +0300
+@@ -32,6 +32,10 @@
+ #include "scrnintstr.h"
+ #include "kdrive.h"
+ 
++#include <sys/time.h> // struct timeval, gettimeofday()
++#include <time.h> // struct timespec, nanosleep(), struct tm, localtime_r()
++//#include <pthread.h> // pthread_self()
++
+ #define NUM_EVENTS  128
+ #define ABS_UNSET   -65535
+ 
+@@ -60,6 +64,122 @@
+     int fd;
+ } Kevdev;
+ 
++void xLogLine(const char * file, unsigned line, const char * function, const char * format, ...) _X_ATTRIBUTE_PRINTF(4, 5);
++void xLogLine(const char * file, unsigned line, const char * function, const char * format, ...)
++{
++    struct timeval tv = { 0, 0 };
++    gettimeofday(&tv, 0);
++#if 0
++    ErrorF("%u:%06u ", (unsigned)tv.tv_sec, (unsigned)tv.tv_usec);
++#endif
++
++    {
++    struct tm tm;
++    tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
++    localtime_r(&tv.tv_sec, &tm);
++#if 0
++    ErrorF("%02u.%02u:%02u.%03u|", tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned)tv.tv_usec/1000);
++#else
++    ErrorF("%02u.%02u:%02u.%06u|", tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned)tv.tv_usec);
++#endif
++    }
++
++#if 0
++    ErrorF("%lu.%lX|", (unsigned long)getpid(), (unsigned long)pthread_self());
++#else
++    ErrorF("%lu|", (unsigned long)getpid());
++#endif
++
++#if 1
++    {
++    const char * this_file = __FILE__;
++    unsigned i;
++    unsigned o;
++    for(o=i=0;;) {
++	char c = this_file[i];
++	if ('\0' == c) { break; }
++	if (c != file[i]) { break; }
++	++i;
++	if ('/' == c) { o = i; }
++    }
++    file += o;
++    }
++#endif
++    ErrorF("[%s:%u:%s] ", file, line, function);
++
++    {
++    va_list args;
++    va_start(args, format);
++    VErrorF(format, args);
++    va_end(args);
++    }
++
++    ErrorF("\n");
++}
++#define xLOG(format, args...) xLogLine(__FILE__, __LINE__, __FUNCTION__, format, ##args)
++unsigned xLogEnabled = 0;
++
++// When evdev disappears we wait a bit between recovery attempts
++#define EVDEV_RECOVERY_WAIT_MS (250) // milliseconds
++#define EVDEV_RECOVERY_WAIT_NS (EVDEV_RECOVERY_WAIT_MS * 1000 * 1000) // nanoseconds
++#define EVDEV_RECOVERY_RETRY_COUNT (3600 * 1000 / EVDEV_RECOVERY_WAIT_MS)
++
++void xWaitABit(void);
++void xWaitABit(void)
++{
++    struct timespec req = { 0, EVDEV_RECOVERY_WAIT_NS };
++    struct timespec rem;
++    nanosleep(&req, &rem);
++}
++
++#ifdef FNONBLOCK
++#define NOBLOCK FNONBLOCK
++#else
++#define NOBLOCK FNDELAY
++#endif
++
++void xNonBlockFd(int fd);
++void xNonBlockFd(int fd)
++{
++    int flags;
++
++    flags = fcntl(fd, F_GETFL);
++    flags |= FASYNC | NOBLOCK;
++    fcntl(fd, F_SETFL, flags);
++}
++
++void tryToRecoverEvdev(int evdevPort, const char * evdevName, const char * evdevPath);
++void tryToRecoverEvdev(int evdevPort, const char * evdevName, const char * evdevPath)
++{
++    unsigned retry;
++
++    xLOG("evdev device '%s'/'%s' has disappeared", evdevName, evdevPath);
++
++    close(evdevPort);
++    for(retry=0; retry<EVDEV_RECOVERY_RETRY_COUNT; ++retry) {
++	int fd;
++
++	xWaitABit(); // Device is unavailable. Let's wait a bit.
++
++	errno = 0;
++	fd = open(evdevPath, O_RDWR);
++	xLOG("retry=%u/%u evdevPort=%i fd=%i errno=%i", retry, EVDEV_RECOVERY_RETRY_COUNT, evdevPort, fd, errno);
++	if (fd < 0) {
++	    continue;
++	}
++	if (evdevPort != fd) { // wrong 'fd'
++	    close(fd);
++	    return;
++	}
++	if (ioctl(fd, EVIOCGRAB, 1) < 0) {
++	    xLOG("unable to 'grab' evdev device '%s'", evdevName);
++	}
++	xNonBlockFd(fd);
++	xLOG("disappeared evdev device '%s' has been recovered", evdevName);
++	return;
++    }
++}
++
+ static void
+ EvdevPtrBtn(KdPointerInfo * pi, struct input_event *ev)
+ {
+@@ -162,7 +282,9 @@
+     n = read(evdevPort, &events, NUM_EVENTS * sizeof(struct input_event));
+     if (n <= 0) {
+         if (errno == ENODEV)
+-            DeleteInputDeviceRequest(pi->dixdev);
++	{
++	    tryToRecoverEvdev(evdevPort, pi->name, pi->path);
++	}
+         return;
+     }
+ 
+@@ -356,7 +478,9 @@
+     n = read(evdevPort, &events, NUM_EVENTS * sizeof(struct input_event));
+     if (n <= 0) {
+         if (errno == ENODEV)
+-            DeleteInputDeviceRequest(ki->dixdev);
++	{
++	    tryToRecoverEvdev(evdevPort, ki->name, ki->path);
++	}
+         return;
+     }
+ 

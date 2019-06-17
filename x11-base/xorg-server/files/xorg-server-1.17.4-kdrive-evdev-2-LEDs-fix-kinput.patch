@@ -1,0 +1,39 @@
+--- old/xorg-server-1.17.4/hw/kdrive/src/kinput.c	2015-10-27 23:12:00.000000000 +0300
++++ new/xorg-server-1.17.4/hw/kdrive/src/kinput.c	2015-12-16 17:25:25.000000000 +0300
+@@ -597,6 +597,28 @@
+     KdSetLeds(ki, ki->dixdev->kbdfeed->ctrl.leds);
+ }
+ 
++/*
++    For unknown reason, logical keyboard LEDs are propagated to physical
++    keyboard LEDs for "CoreKeyboard" only. All "kdrive" keyboards are
++    not "CoreKeyboard" and LEDs of "kdrive" keyboards are always "dead".
++    As workaround, the following function will clone "CoreKeyboard" LEDs
++    to all "kdrive" keyboards.
++*/
++static void
++KdCloneCoreLEDs(void)
++{
++    DeviceIntPtr pCoreKeyboard = inputInfo.keyboard;
++    if (pCoreKeyboard && pCoreKeyboard->kbdfeed) {
++	Leds leds = pCoreKeyboard->kbdfeed->ctrl.leds;
++	KdKeyboardInfo *tmp;
++	for (tmp = kdKeyboards; tmp; tmp = tmp->next) {
++	    if (tmp->leds != leds) {
++		KdSetLeds(tmp, tmp->leds = leds);
++	    }
++	}
++    }
++}
++
+ void
+ KdSetPointerMatrix(KdPointerMatrix * matrix)
+ {
+@@ -2103,6 +2125,7 @@
+     if (kdSwitchPending)
+         KdProcessSwitch();
+     KdCheckLock();
++    KdCloneCoreLEDs();
+ }
+ 
+ /* At the moment, absolute/relative is up to the client. */

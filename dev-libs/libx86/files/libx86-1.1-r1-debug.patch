@@ -1,0 +1,1134 @@
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/Makefile libx86-1.1-r1/work/libx86-1.1/Makefile
+--- libx86-1.1-r1.0/work/libx86-1.1/Makefile	2009-04-12 15:25:38.000000000 +0400
++++ libx86-1.1-r1/work/libx86-1.1/Makefile	2009-04-12 17:31:36.000000000 +0400
+@@ -1,5 +1,6 @@
+ OBJECTS = x86-common.o
+ CFLAGS ?= -O2 -Wall -DDEBUG -g
++CFLAGS += -O0 -DDEBUG -g
+ LIBDIR ?= /usr/lib
+ 
+ ifeq ($(BACKEND),x86emu)
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/thunk.c libx86-1.1-r1/work/libx86-1.1/thunk.c
+--- libx86-1.1-r1.0/work/libx86-1.1/thunk.c	2008-04-03 04:48:00.000000000 +0400
++++ libx86-1.1-r1/work/libx86-1.1/thunk.c	2009-04-12 17:38:36.000000000 +0400
+@@ -41,6 +41,13 @@
+         return value; \
+ }\
+ 
++#define DprintLn(fmt, args...) \
++    do { \
++	fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++	/*fflush(stderr);*/ \
++    } while (0)
++
++
+ __BUILDIO(b,b,char)
+ __BUILDIO(w,w,short)
+ __BUILDIO(l,,int)
+@@ -57,11 +64,12 @@
+ 	va_list argptr;
+ 	va_start(argptr, fmt);
+ 
+-	fprintf(stderr, fmt, argptr);
++	vfprintf(stderr, fmt, argptr);
+ 	va_end(argptr);
+ }
+ 
+ u8 read_b(int addr) {
++    //DprintLn("");
+ 	return *((char *)mmap_addr + addr);
+ }
+ 
+@@ -69,6 +77,7 @@
+ x_inb(CARD16 port)
+ {
+ 	CARD8 val;
++    //DprintLn("");
+ 	val = inb_local(port);
+ 	return val;
+ }
+@@ -77,6 +86,7 @@
+ x_inw(CARD16 port)
+ {
+ 	CARD16 val;
++    //DprintLn("");
+ 	val = inw_local(port);
+ 	return val;
+ }
+@@ -85,6 +95,7 @@
+ x_inl(CARD16 port)
+ {
+ 	CARD32 val;
++    //DprintLn("");
+ 	val = inl_local(port);
+ 	return val;
+ }
+@@ -92,22 +103,26 @@
+ void
+ x_outb(CARD16 port, CARD8 val)
+ {
++    //DprintLn("");
+         outb_local(port, val);
+ }
+ 
+ void
+ x_outw(CARD16 port, CARD16 val)
+ {
++    //DprintLn("");
+         outw_local(port, val);
+ }
+ 
+ void x_outl(CARD16 port, CARD32 val)
+ {
++    //DprintLn("");
+ 	outl_local(port, val);
+ }
+ 
+ void pushw(u16 val)
+ {
++    //DprintLn("");
+ 	X86_ESP -= 2;
+ 	MEM_WW(((u32) X86_SS << 4) + X86_SP, val);
+ }
+@@ -116,6 +131,7 @@
+ {
+ 	u32 eflags;
+ 	
++    DprintLn("");
+ 	/*	fprintf(stderr, "Calling INT 0x%X (%04X:%04X)\n", num,
+ 			(read_b((num << 2) + 3) << 8) + read_b((num << 2) + 2),
+ 			(read_b((num << 2) + 1) << 8) + read_b((num << 2)));
+@@ -139,6 +155,7 @@
+ 	int i;
+ 	X86EMU_intrFuncs intFuncs[256];
+ 
++    DprintLn("");
+ 	if (!LRMI_common_init())
+ 		return 0;
+ 
+@@ -165,6 +182,7 @@
+ 	 * Allocate a 64k stack.
+ 	 */
+ 	stack = LRMI_alloc_real(64 * 1024);
++	DprintLn("stack=%p", stack);
+ 	X86_SS = (unsigned int) stack >> 4;
+ 	X86_ESP = 0xFFF9;
+ 	memset (stack, 0, 64*1024);
+@@ -181,6 +199,7 @@
+ int real_call(struct LRMI_regs *registers) {
+         regs = registers;
+ 
++    DprintLn("");
+         X86_EAX = registers->eax;
+         X86_EBX = registers->ebx;
+         X86_ECX = registers->ecx;
+@@ -225,11 +244,13 @@
+ 	registers->ebp = X86_EBP;
+ 	registers->es = X86_ES;
+ 
++    DprintLn("");
+ 	return 1;
+ }
+ 
+ int LRMI_int(int num, struct LRMI_regs *registers) {
+ 	u32 eflags;
++    DprintLn("");
+ 	eflags = X86_EFLAGS;
+ 	eflags = eflags | X86_IF_MASK;
+ 	X86_EFLAGS = X86_EFLAGS  & ~(X86_VIF_MASK | X86_TF_MASK | X86_IF_MASK | X86_NT_MASK);
+@@ -241,6 +262,7 @@
+ }
+ 
+ int LRMI_call(struct LRMI_regs *registers) {
++    DprintLn("");
+ 	return real_call(registers);
+ }
+ 
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/x86emu/decode.c libx86-1.1-r1/work/libx86-1.1/x86emu/decode.c
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/decode.c	2006-10-30 23:42:27.000000000 +0300
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/decode.c	2009-04-12 17:31:36.000000000 +0400
+@@ -40,6 +40,13 @@
+ 
+ #include "x86emu/x86emui.h"
+ 
++#include <stdio.h>
++#define DprintLn(fmt, args...) \
++    do { \
++       fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++       /*fflush(stderr);*/ \
++    } while (0)
++
+ /*----------------------------- Implementation ----------------------------*/
+ 
+ /****************************************************************************
+@@ -50,6 +57,7 @@
+ {
+ 	u8	intno;
+ 
++    //DprintLn("");
+ 	if (M.x86.intr & INTR_SYNCH) {
+ 		intno = M.x86.intno;
+ 		if (_X86EMU_intrTab[intno]) {
+@@ -78,6 +86,7 @@
+ void x86emu_intr_raise(
+ 	u8 intrnum)
+ {
++    //DprintLn("");
+ 	M.x86.intno = intrnum;
+ 	M.x86.intr |= INTR_SYNCH;
+ }
+@@ -96,6 +105,7 @@
+ 	DB(x86emu_end_instr();)
+ 
+     for (;;) {
++        fprintf(stderr, "CS:IP=%04X:%04X\t", M.x86.R_CS, M.x86.R_IP);
+ DB(		if (CHECK_IP_FETCH())
+ 		  x86emu_check_ip_access();)
+ 		/* If debugging, save the IP and CS values. */
+@@ -121,6 +131,7 @@
+ 		op1 = (*sys_rdb)(((u32)M.x86.R_CS << 4) + (M.x86.R_IP++));
+ 		//		fprintf (stderr, "%s", M.x86.decoded_buf);
+ 		//		x86emu_dump_regs();
++        //DprintLn("x86emu_optab[%u]=%p", op1, x86emu_optab[op1]);
+ 		(*x86emu_optab[op1])(op1);
+     }
+ }
+@@ -131,6 +142,7 @@
+ ****************************************************************************/
+ void X86EMU_halt_sys(void)
+ {
++    DprintLn("");
+ 	M.x86.intr |= INTR_HALTED;
+ }
+ 
+@@ -153,6 +165,7 @@
+ {
+ 	int fetched;
+ 
++    //DprintLn("");
+ DB(	if (CHECK_IP_FETCH())
+ 	  x86emu_check_ip_access();)
+ 	fetched = (*sys_rdb)(((u32)M.x86.R_CS << 4) + (M.x86.R_IP++));
+@@ -176,6 +189,7 @@
+ {
+ 	u8 fetched;
+ 
++    //DprintLn("");
+ DB(	if (CHECK_IP_FETCH())
+ 		x86emu_check_ip_access();)
+ 	fetched = (*sys_rdb)(((u32)M.x86.R_CS << 4) + (M.x86.R_IP++));
+@@ -197,6 +211,7 @@
+ {
+ 	u16	fetched;
+ 
++    //DprintLn("");
+ DB(	if (CHECK_IP_FETCH())
+ 		x86emu_check_ip_access();)
+ 	fetched = (*sys_rdw)(((u32)M.x86.R_CS << 4) + (M.x86.R_IP));
+@@ -219,6 +234,7 @@
+ {
+ 	u32 fetched;
+ 
++    //DprintLn("");
+ DB(	if (CHECK_IP_FETCH())
+ 	  x86emu_check_ip_access();)
+ 	fetched = (*sys_rdl)(((u32)M.x86.R_CS << 4) + (M.x86.R_IP));
+@@ -302,6 +318,7 @@
+ u8 fetch_data_byte(
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -321,6 +338,7 @@
+ u16 fetch_data_word(
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -340,6 +358,7 @@
+ u32 fetch_data_long(
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -361,6 +380,7 @@
+ 	uint segment,
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -382,6 +402,7 @@
+ 	uint segment,
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -403,6 +424,7 @@
+ 	uint segment,
+ 	uint offset)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -425,6 +447,7 @@
+ 	uint offset,
+ 	u8 val)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -447,6 +470,7 @@
+ 	uint offset,
+ 	u16 val)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -469,6 +493,7 @@
+ 	uint offset,
+ 	u32 val)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access((u16)get_data_segment(), offset);
+@@ -492,6 +517,7 @@
+ 	uint offset,
+ 	u8 val)
+ {
++    DprintLn("[%04X:%04X=%06X]=%02X", segment, offset, (segment<<4)+offset, val);
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -515,6 +541,7 @@
+ 	uint offset,
+ 	u16 val)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -538,6 +565,7 @@
+ 	uint offset,
+ 	u32 val)
+ {
++    //DprintLn("");
+ #ifdef DEBUG
+ 	if (CHECK_DATA_ACCESS())
+ 		x86emu_check_data_access(segment, offset);
+@@ -559,6 +587,7 @@
+ u8* decode_rm_byte_register(
+ 	int reg)
+ {
++    //DprintLn("");
+ 	switch (reg) {
+       case 0:
+ 		DECODE_PRINTF("AL");
+@@ -603,6 +632,7 @@
+ u16* decode_rm_word_register(
+ 	int reg)
+ {
++    //DprintLn("");
+ 	switch (reg) {
+ 	  case 0:
+ 		DECODE_PRINTF("AX");
+@@ -647,6 +677,7 @@
+ u32* decode_rm_long_register(
+ 	int reg)
+ {
++    //DprintLn("");
+     switch (reg) {
+       case 0:
+ 		DECODE_PRINTF("EAX");
+@@ -692,6 +723,7 @@
+ u16* decode_rm_seg_register(
+ 	int reg)
+ {
++    //DprintLn("");
+ 	switch (reg) {
+ 	  case 0:
+ 		DECODE_PRINTF("ES");
+@@ -731,6 +763,7 @@
+ {
+     u32 base = 0, i = 0, scale = 1;
+ 
++    //DprintLn("");
+     switch(sib & 0x07) {
+     case 0:
+ 	DECODE_PRINTF("[EAX]");
+@@ -842,6 +875,7 @@
+     u32 offset;
+     int sib;
+ 
++    //DprintLn("");
+     if (M.x86.mode & SYSMODE_PREFIX_ADDR) {
+ 	switch (rm) {
+ 	  case 0:
+@@ -923,6 +957,7 @@
+     int displacement = 0;
+     int sib;
+ 
++    //DprintLn("");
+     /* Fetch disp8 if no SIB byte */
+     if (!((M.x86.mode & SYSMODE_PREFIX_ADDR) && (rm == 4)))
+ 	displacement = (s8)fetch_byte_imm();
+@@ -1009,6 +1044,7 @@
+     u32 displacement = 0;
+     int sib;
+ 
++    //DprintLn("");
+     /* Fetch disp16 if 16-bit addr mode */
+     if (!(M.x86.mode & SYSMODE_PREFIX_ADDR))
+ 	displacement = (u16)fetch_word_imm();
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/x86emu/prim_ops.c libx86-1.1-r1/work/libx86-1.1/x86emu/prim_ops.c
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/prim_ops.c	2008-03-22 05:20:15.000000000 +0300
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/prim_ops.c	2009-04-12 17:31:36.000000000 +0400
+@@ -1,3 +1,10 @@
++#include <stdio.h>
++#define DprintLn(fmt, args...) \
++    do { \
++       fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++       /*fflush(stderr);*/ \
++    } while (0)
++
+ /****************************************************************************
+ *
+ *						Realmode X86 Emulator Library
+@@ -2599,6 +2606,7 @@
+ ****************************************************************************/
+ u16 mem_access_word(int addr)
+ {
++    DprintLn("addr=%X", addr);
+ DB(	if (CHECK_MEM_ACCESS())
+ 	  x86emu_check_mem_access(addr);)
+ 	return (*sys_rdw)(addr);
+@@ -2612,10 +2620,13 @@
+ ****************************************************************************/
+ void push_word(u16 w)
+ {
++    //DprintLn("w=%04X", w);
+ DB(	if (CHECK_SP_ACCESS())
+ 	  x86emu_check_sp_access();)
+ 	M.x86.R_SP -= 2;
++    //DprintLn("[SS:SP=%04X:%04X]=%04X", M.x86.R_SS, M.x86.R_SP, w);
+ 	(*sys_wrw)(((u32)M.x86.R_SS << 4)  + M.x86.R_SP, w);
++    //DprintLn("");
+ }
+ 
+ /****************************************************************************
+@@ -2626,10 +2637,13 @@
+ ****************************************************************************/
+ void push_long(u32 w)
+ {
++    //DprintLn("w=%08X", w);
+ DB(	if (CHECK_SP_ACCESS())
+ 	  x86emu_check_sp_access();)
+ 	M.x86.R_SP -= 4;
++    //DprintLn("[SS:SP=%04X:%04X]=%08X", M.x86.R_SS, M.x86.R_SP, w);
+ 	(*sys_wrl)(((u32)M.x86.R_SS << 4)  + M.x86.R_SP, w);
++    //DprintLn("");
+ }
+ 
+ /****************************************************************************
+@@ -2641,6 +2655,7 @@
+ u16 pop_word(void)
+ {
+ 	register u16 res;
++    //DprintLn("");
+ 
+ DB(	if (CHECK_SP_ACCESS())
+ 	  x86emu_check_sp_access();)
+@@ -2658,6 +2673,7 @@
+ u32 pop_long(void)
+ {
+     register u32 res;
++    //DprintLn("");
+ 
+ DB(	if (CHECK_SP_ACCESS())
+ 	  x86emu_check_sp_access();)
+@@ -2673,6 +2689,7 @@
+ void cpuid (void)
+ {
+     u32 feature = M.x86.R_EAX;
++    DprintLn("");
+ 
+ #ifdef X86EMU_HAS_HW_CPUID
+     /* If the platform allows it, we will base our values on the real
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/x86emu/sys.c libx86-1.1-r1/work/libx86-1.1/x86emu/sys.c
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/sys.c	2007-09-24 04:15:57.000000000 +0400
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/sys.c	2009-04-12 17:31:36.000000000 +0400
+@@ -56,6 +56,13 @@
+ #include <fcntl.h>
+ #include <sys/mman.h>
+ 
++#include <stdio.h>
++#define DprintLn(fmt, args...) \
++    do { \
++       fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++       /*fflush(stderr);*/ \
++    } while (0)
++
+ /*------------------------- Global Variables ------------------------------*/
+ 
+ X86EMU_sysEnv		_X86EMU_env;		/* Global emulator machine state */
+@@ -85,6 +92,7 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	const struct __una_u64 *ptr = (const struct __una_u64 *) r11;
++    //DprintLn("");
+ 	return ptr->x;
+ #else
+ 	unsigned long r1,r2;
+@@ -96,6 +104,7 @@
+ 		:"r" (r11),
+ 		 "m" (*r11),
+ 		 "m" (*(const unsigned long *)(7+(char *) r11)));
++    //DprintLn("");
+ 	return r1 | r2;
+ #endif
+ }
+@@ -104,6 +113,7 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	const struct __una_u32 *ptr = (const struct __una_u32 *) r11;
++    //DprintLn("");
+ 	return ptr->x;
+ #else
+ 	unsigned long r1,r2;
+@@ -115,6 +125,7 @@
+ 		:"r" (r11),
+ 		 "m" (*r11),
+ 		 "m" (*(const unsigned long *)(3+(char *) r11)));
++    //DprintLn("");
+ 	return r1 | r2;
+ #endif
+ }
+@@ -123,6 +134,7 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	const struct __una_u16 *ptr = (const struct __una_u16 *) r11;
++    //DprintLn("");
+ 	return ptr->x;
+ #else
+ 	unsigned long r1,r2;
+@@ -134,6 +146,7 @@
+ 		:"r" (r11),
+ 		 "m" (*r11),
+ 		 "m" (*(const unsigned long *)(1+(char *) r11)));
++    //DprintLn("");
+ 	return r1 | r2;
+ #endif
+ }
+@@ -146,9 +159,11 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	struct __una_u64 *ptr = (struct __una_u64 *) r11;
++    //DprintLn("");
+ 	ptr->x = r5;
+ #else
+ 	unsigned long r1,r2,r3,r4;
++    //DprintLn("");
+ 
+ 	__asm__("ldq_u %3,%1\n\t"
+ 		"ldq_u %2,%0\n\t"
+@@ -171,9 +186,11 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	struct __una_u32 *ptr = (struct __una_u32 *) r11;
++    //DprintLn("");
+ 	ptr->x = r5;
+ #else
+ 	unsigned long r1,r2,r3,r4;
++    //DprintLn("");
+ 
+ 	__asm__("ldq_u %3,%1\n\t"
+ 		"ldq_u %2,%0\n\t"
+@@ -196,9 +213,11 @@
+ {
+ #if defined(__GNUC__) && ((__GNUC__ > 2) || (__GNUC_MINOR__ >= 91))
+ 	struct __una_u16 *ptr = (struct __una_u16 *) r11;
++    //DprintLn("");
+ 	ptr->x = r5;
+ #else
+ 	unsigned long r1,r2,r3,r4;
++    //DprintLn("");
+ 
+ 	__asm__("ldq_u %3,%1\n\t"
+ 		"ldq_u %2,%0\n\t"
+@@ -225,6 +244,7 @@
+   void *identity = mmap(NULL, 8192, PROT_READ, MAP_PRIVATE, fd, (addr-offset));
+   memcpy (&value, identity+offset, size);
+   munmap (identity, 8192);
++    //DprintLn("");
+   return value;
+ }
+ 
+@@ -243,6 +263,7 @@
+     u32 addr)
+ {
+ 	u8 val;
++    //DprintLn("");
+ 
+ 	if (addr > M.mem_size - 1)
+ 	  val = mmap_read (addr, 1);
+@@ -250,6 +271,7 @@
+ 	  val = *(u8*)(M.mem_base + addr);	
+ DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 1 -> %#x\n", addr, val);)
++    //DprintLn("[addr=%08X]=%02X", addr, val);
+ 	return val;
+ }
+ 
+@@ -267,6 +289,7 @@
+ 	u32 addr)
+ {
+ 	u16 val = 0;
++    //DprintLn("");
+ 
+ 	if (addr > M.mem_size - 2)
+ 	  val = mmap_read (addr, 2);
+@@ -286,6 +309,7 @@
+ 	}
+ 	  DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 2 -> %#x\n", addr, val);)
++    //DprintLn("[addr=%08X]=%04X", addr, val);
+     return val;
+ }
+ 
+@@ -302,6 +326,7 @@
+ 	u32 addr)
+ {
+ 	u32 val = 0;
++    //DprintLn("");
+ 
+ 	if (addr > M.mem_size - 4)
+ 	  val = mmap_read (addr, 4);
+@@ -323,6 +348,7 @@
+ 	}
+ 	DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 4 -> %#x\n", addr, val);)
++    //DprintLn("[addr=%08X]=%08X", addr, val);
+ 	  return val;
+ }
+ 
+@@ -338,6 +364,7 @@
+ 	u32 addr,
+ 	u8 val)
+ {
++    //DprintLn("");
+ DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 1 <- %#x\n", addr, val);)
+     if (addr > M.mem_size - 1) {
+@@ -359,6 +386,7 @@
+ 	u32 addr,
+ 	u16 val)
+ {
++    //DprintLn("");
+ DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 2 <- %#x\n", addr, val);)
+ 	if (addr > M.mem_size - 2) {
+@@ -391,6 +419,7 @@
+ 	u32 addr,
+ 	u32 val)
+ {
++    //DprintLn("");
+ DB(	if (DEBUG_MEM_TRACE())
+ 		printk("%#08x 4 <- %#x\n", addr, val);)
+ 	if (addr > M.mem_size - 4) {
+@@ -424,6 +453,7 @@
+ static u8 X86API p_inb(
+ 	X86EMU_pioAddr addr)
+ {
++    DprintLn("No real inb");
+ 	printf("No real inb\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("inb %#04x \n", addr);)
+@@ -441,6 +471,7 @@
+ static u16 X86API p_inw(
+ 	X86EMU_pioAddr addr)
+ {
++    DprintLn("No real inw");
+ 	printf("No real inw\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("inw %#04x \n", addr);)
+@@ -458,6 +489,7 @@
+ static u32 X86API p_inl(
+ 	X86EMU_pioAddr addr)
+ {
++    DprintLn("No real inl");
+ 	printf("No real inl\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("inl %#04x \n", addr);)
+@@ -475,6 +507,7 @@
+ 	X86EMU_pioAddr addr,
+ 	u8 val)
+ {
++    DprintLn("No real outb");
+ 	printf("No real outb\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("outb %#02x -> %#04x \n", val, addr);)
+@@ -492,6 +525,7 @@
+ 	X86EMU_pioAddr addr,
+ 	u16 val)
+ {
++    DprintLn("No real outw");
+ 	printf("No real outw\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("outw %#04x -> %#04x \n", val, addr);)
+@@ -509,6 +543,7 @@
+ 	X86EMU_pioAddr addr,
+ 	u32 val)
+ {
++    DprintLn("No real outl");
+ 	printf("No real outl\n");
+ DB(	if (DEBUG_IO_TRACE())
+ 		printk("outl %#08x -> %#04x \n", val, addr);)
+@@ -544,6 +579,7 @@
+ void X86EMU_setupMemFuncs(
+ 	X86EMU_memFuncs *funcs)
+ {
++    DprintLn("");
+     sys_rdb = funcs->rdb;
+     sys_rdw = funcs->rdw;
+     sys_rdl = funcs->rdl;
+@@ -564,6 +600,7 @@
+ void X86EMU_setupPioFuncs(
+ 	X86EMU_pioFuncs *funcs)
+ {
++    DprintLn("");
+     sys_inb = funcs->inb;
+     sys_inw = funcs->inw;
+     sys_inl = funcs->inl;
+@@ -589,6 +626,7 @@
+ 	X86EMU_intrFuncs funcs[])
+ {
+     int i;
++    DprintLn("");
+     
+ 	for (i=0; i < 256; i++)
+ 		_X86EMU_intrTab[i] = NULL;
+@@ -613,6 +651,7 @@
+ void X86EMU_prepareForInt(
+ 	int num)
+ {
++    DprintLn("");
+     push_word((u16)M.x86.R_FLG);
+     CLEAR_FLAG(F_IF);
+     CLEAR_FLAG(F_TF);
+@@ -621,4 +660,5 @@
+     push_word(M.x86.R_IP);
+     M.x86.R_IP = mem_access_word(num * 4);
+ 	M.x86.intr = 0;
++    DprintLn("");
+ }
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/x86emu/x86emu/debug.h libx86-1.1-r1/work/libx86-1.1/x86emu/x86emu/debug.h
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/x86emu/debug.h	2006-10-29 20:31:05.000000000 +0300
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/x86emu/debug.h	2009-04-12 17:31:36.000000000 +0400
+@@ -49,10 +49,10 @@
+ #define CHECK_DATA_ACCESS_F             0x8 /*using segment:offset*/
+ 
+ #ifdef DEBUG
+-# define CHECK_IP_FETCH()              	(M.x86.check & CHECK_IP_FETCH_F)
+-# define CHECK_SP_ACCESS()             	(M.x86.check & CHECK_SP_ACCESS_F)
+-# define CHECK_MEM_ACCESS()            	(M.x86.check & CHECK_MEM_ACCESS_F)
+-# define CHECK_DATA_ACCESS()           	(M.x86.check & CHECK_DATA_ACCESS_F)
++# define CHECK_IP_FETCH()              	(1)
++# define CHECK_SP_ACCESS()             	(1)
++# define CHECK_MEM_ACCESS()            	(1)
++# define CHECK_DATA_ACCESS()           	(1)
+ #else
+ # define CHECK_IP_FETCH()
+ # define CHECK_SP_ACCESS()
+@@ -61,24 +61,24 @@
+ #endif
+ 
+ #ifdef DEBUG
+-# define DEBUG_INSTRUMENT()    	(M.x86.debug & DEBUG_INSTRUMENT_F)
+-# define DEBUG_DECODE()        	(M.x86.debug & DEBUG_DECODE_F)
+-# define DEBUG_TRACE()         	(M.x86.debug & DEBUG_TRACE_F)
+-# define DEBUG_STEP()          	(M.x86.debug & DEBUG_STEP_F)
+-# define DEBUG_DISASSEMBLE()   	(M.x86.debug & DEBUG_DISASSEMBLE_F)
+-# define DEBUG_BREAK()         	(M.x86.debug & DEBUG_BREAK_F)
+-# define DEBUG_SVC()           	(M.x86.debug & DEBUG_SVC_F)
+-# define DEBUG_SAVE_IP_CS()     (M.x86.debug & DEBUG_SAVE_IP_CS_F)
+-
+-# define DEBUG_FS()            	(M.x86.debug & DEBUG_FS_F)
+-# define DEBUG_PROC()          	(M.x86.debug & DEBUG_PROC_F)
+-# define DEBUG_SYSINT()        	(M.x86.debug & DEBUG_SYSINT_F)
+-# define DEBUG_TRACECALL()     	(M.x86.debug & DEBUG_TRACECALL_F)
+-# define DEBUG_TRACECALLREGS() 	(M.x86.debug & DEBUG_TRACECALL_REGS_F)
+-# define DEBUG_SYS()           	(M.x86.debug & DEBUG_SYS_F)
+-# define DEBUG_MEM_TRACE()     	(M.x86.debug & DEBUG_MEM_TRACE_F)
+-# define DEBUG_IO_TRACE()      	(M.x86.debug & DEBUG_IO_TRACE_F)
+-# define DEBUG_DECODE_NOPRINT() (M.x86.debug & DEBUG_DECODE_NOPRINT_F)
++# define DEBUG_INSTRUMENT()    	(0)
++# define DEBUG_DECODE()        	(1)
++# define DEBUG_TRACE()         	(0)
++# define DEBUG_STEP()          	(0)
++# define DEBUG_DISASSEMBLE()   	(0)
++# define DEBUG_BREAK()         	(0)
++# define DEBUG_SVC()           	(0)
++# define DEBUG_SAVE_IP_CS()     (1)
++
++# define DEBUG_FS()            	(0)
++# define DEBUG_PROC()          	(0)
++# define DEBUG_SYSINT()        	(0)
++# define DEBUG_TRACECALL()     	(1)
++# define DEBUG_TRACECALLREGS() 	(1)
++# define DEBUG_SYS()           	(0)
++# define DEBUG_MEM_TRACE()     	(0)
++# define DEBUG_IO_TRACE()      	(0)
++# define DEBUG_DECODE_NOPRINT() (0)
+ #else
+ # define DEBUG_INSTRUMENT()    	0
+ # define DEBUG_DECODE()        	0
+@@ -166,12 +166,12 @@
+ #ifdef DEBUG
+ # define  CALL_TRACE(u,v,w,x,s)                                 \
+ 	if (DEBUG_TRACECALLREGS())									\
+-		x86emu_dump_regs();                                     \
++		x86emu_dump_xregs();                                     \
+ 	if (DEBUG_TRACECALL())                                     	\
+ 		printk("%04x:%04x: CALL %s%04x:%04x\n", u , v, s, w, x);
+ # define RETURN_TRACE(n,u,v)                                    \
+ 	if (DEBUG_TRACECALLREGS())									\
+-		x86emu_dump_regs();                                     \
++		x86emu_dump_xregs();                                     \
+ 	if (DEBUG_TRACECALL())                                     	\
+ 		printk("%04x:%04x: %s\n",u,v,n);
+ #else
+diff -ur libx86-1.1-r1.0/work/libx86-1.1/x86emu/debug.c libx86-1.1-r1/work/libx86-1.1/x86emu/debug.c
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/debug.c	2006-10-30 17:28:48.000000000 +0300
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/debug.c	2009-04-12 17:31:36.000000000 +0400
+@@ -45,6 +45,14 @@
+ #include <stdlib.h>
+ #endif
+ 
++#include <stdio.h>
++
++#define DprintLn(fmt, args...) \
++    do { \
++       fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++       /*fflush(stderr);*/ \
++    } while (0)
++
+ /*----------------------------- Implementation ----------------------------*/
+ 
+ #ifdef DEBUG
+@@ -56,7 +64,8 @@
+ /* should look something like debug's output. */
+ void X86EMU_trace_regs (void)
+ {
+-return;
++    DprintLn("");
++//return;
+ 	if (DEBUG_TRACE()) {
+ 		x86emu_dump_regs();
+     }
+@@ -72,6 +81,7 @@
+ 
+ void X86EMU_trace_xregs (void)
+ {
++    DprintLn("");
+ 	if (DEBUG_TRACE()) {
+ 		x86emu_dump_xregs();
+     }
+@@ -79,6 +89,7 @@
+ 
+ void x86emu_just_disassemble (void)
+ {
++    DprintLn("");
+     /*
+      * This routine called if the flag DEBUG_DISASSEMBLE is set kind
+      * of a hack!
+@@ -93,6 +104,7 @@
+ 	X86EMU_sysEnv tregs;
+ 	int i;
+ 	u8 op1;
++    DprintLn("");
+     /*
+      * hack, hack, hack.  What we do is use the exact machinery set up
+      * for execution, except that now there is an additional state
+@@ -145,31 +157,37 @@
+ 
+ void x86emu_check_ip_access (void)
+ {
++    //DprintLn("");
+     /* NULL as of now */
+ }
+ 
+ void x86emu_check_sp_access (void)
+ {
++    //DprintLn("");
+ }
+ 
+ void x86emu_check_mem_access (u32 dummy)
+ {
++    //DprintLn("");
+ 	/*  check bounds, etc */
+ }
+ 
+ void x86emu_check_data_access (uint dummy1, uint dummy2)
+ {
++    //DprintLn("");
+ 	/*  check bounds, etc */
+ }
+ 
+ void x86emu_inc_decoded_inst_len (int x)
+ {
++    //DprintLn("");
+ 	M.x86.enc_pos += x;
+ }
+ 
+ void x86emu_decode_printf (char *x)
+ {
+ 	sprintf(M.x86.decoded_buf+M.x86.enc_str_pos,"%s",x);
++	fputs(x, stderr); /*fflush(stderr);*/
+ 	M.x86.enc_str_pos += strlen(x);
+ }
+ 
+@@ -178,11 +196,13 @@
+ 	char temp[100];
+ 	sprintf(temp,x,y);
+ 	sprintf(M.x86.decoded_buf+M.x86.enc_str_pos,"%s",temp);
++	fputs(temp, stderr); /*fflush(stderr);*/
+ 	M.x86.enc_str_pos += strlen(temp);
+ }
+ 
+ void x86emu_end_instr (void)
+ {
++    //DprintLn("");
+ 	M.x86.enc_str_pos = 0;
+ 	M.x86.enc_pos = 0;
+ }
+@@ -194,11 +214,13 @@
+ 	for (i=0; i< M.x86.enc_pos; i++) {
+ 		sprintf(buf1+2*i,"%02x", fetch_data_byte_abs(s,o+i));
+     }
++    DprintLn("%-20s",buf1);
+ 	printf("%-20s",buf1);
+ }
+ 
+ static void print_decoded_instruction (void)
+ {
++    DprintLn("%s", M.x86.decoded_buf);
+ 	printf("%s", M.x86.decoded_buf);
+ }
+ 
+@@ -206,9 +228,11 @@
+ {
+ 	u16 seg,off;
+ 
++    //DprintLn("");
+ 	if (iv > 256) return;
+ 	seg   = fetch_data_word_abs(0,iv*4);
+ 	off   = fetch_data_word_abs(0,iv*4+2);
++    DprintLn("%04x:%04x ", seg, off);
+ 	printf("%04x:%04x ", seg, off);
+ }
+ 
+@@ -219,6 +243,7 @@
+ 	u32 i;
+ 	u32 current;
+ 
++    //DprintLn("");
+ 	current = start;
+ 	while (end <= off + amt) {
+ 		printf("%04x:%04x ", seg, start);
+@@ -246,6 +271,7 @@
+     
+     char *p;
+ 
++    //DprintLn("");
+ 		if (DEBUG_BREAK()) {
+ 				if (M.x86.saved_ip != breakpoint) {
+ 						return;
+@@ -325,11 +351,13 @@
+ 
+ int X86EMU_trace_on(void)
+ {
++    //DprintLn("");
+ 	return M.x86.debug |= DEBUG_STEP_F | DEBUG_DECODE_F | DEBUG_TRACE_F;
+ }
+ 
+ int X86EMU_trace_off(void)
+ {
++    //DprintLn("");
+ 	return M.x86.debug &= ~(DEBUG_STEP_F | DEBUG_DECODE_F | DEBUG_TRACE_F);
+ }
+ 
+@@ -337,6 +365,7 @@
+ {
+     int cmd;
+ 
++    //DprintLn("");
+     *n = 0;
+     while(*s == ' ' || *s == '\t') s++;
+     ps[*n] = *s;
+@@ -366,6 +395,7 @@
+ 
+ void x86emu_dump_regs (void)
+ {
++    //DprintLn("");
+ 	fprintf(stderr, "\tAX=%04x  ", M.x86.R_AX );
+ 	fprintf(stderr, "BX=%04x  ", M.x86.R_BX );
+ 	fprintf(stderr, "CX=%04x  ", M.x86.R_CX );
+@@ -400,34 +430,35 @@
+ 
+ void x86emu_dump_xregs (void)
+ {
+-	printf("\tEAX=%08x  ", M.x86.R_EAX );
+-	printf("EBX=%08x  ", M.x86.R_EBX );
+-	printf("ECX=%08x  ", M.x86.R_ECX );
+-	printf("EDX=%08x  \n", M.x86.R_EDX );
+-	printf("\tESP=%08x  ", M.x86.R_ESP );
+-	printf("EBP=%08x  ", M.x86.R_EBP );
+-	printf("ESI=%08x  ", M.x86.R_ESI );
+-	printf("EDI=%08x\n", M.x86.R_EDI );
+-	printf("\tDS=%04x  ", M.x86.R_DS );
+-	printf("ES=%04x  ", M.x86.R_ES );
+-	printf("SS=%04x  ", M.x86.R_SS );
+-	printf("CS=%04x  ", M.x86.R_CS );
+-	printf("EIP=%08x\n\t", M.x86.R_EIP );
+-	if (ACCESS_FLAG(F_OF))    printf("OV ");     /* CHECKED... */
+-	else                        printf("NV ");
+-	if (ACCESS_FLAG(F_DF))    printf("DN ");
+-	else                        printf("UP ");
+-	if (ACCESS_FLAG(F_IF))    printf("EI ");
+-	else                        printf("DI ");
+-	if (ACCESS_FLAG(F_SF))    printf("NG ");
+-	else                        printf("PL ");
+-	if (ACCESS_FLAG(F_ZF))    printf("ZR ");
+-	else                        printf("NZ ");
+-	if (ACCESS_FLAG(F_AF))    printf("AC ");
+-	else                        printf("NA ");
+-	if (ACCESS_FLAG(F_PF))    printf("PE ");
+-	else                        printf("PO ");
+-	if (ACCESS_FLAG(F_CF))    printf("CY ");
+-	else                        printf("NC ");
+-	printf("\n");
++    //DprintLn("");
++	fprintf(stderr,"\tEAX=%08x  ", M.x86.R_EAX );
++	fprintf(stderr,"EBX=%08x  ", M.x86.R_EBX );
++	fprintf(stderr,"ECX=%08x  ", M.x86.R_ECX );
++	fprintf(stderr,"EDX=%08x  \n", M.x86.R_EDX );
++	fprintf(stderr,"\tESP=%08x  ", M.x86.R_ESP );
++	fprintf(stderr,"EBP=%08x  ", M.x86.R_EBP );
++	fprintf(stderr,"ESI=%08x  ", M.x86.R_ESI );
++	fprintf(stderr,"EDI=%08x\n", M.x86.R_EDI );
++	fprintf(stderr,"\tDS=%04x  ", M.x86.R_DS );
++	fprintf(stderr,"ES=%04x  ", M.x86.R_ES );
++	fprintf(stderr,"SS=%04x  ", M.x86.R_SS );
++	fprintf(stderr,"CS=%04x  ", M.x86.R_CS );
++	fprintf(stderr,"EIP=%08x\n\t", M.x86.R_EIP );
++	if (ACCESS_FLAG(F_OF))    fprintf(stderr,"OV ");     /* CHECKED... */
++	else                        fprintf(stderr,"NV ");
++	if (ACCESS_FLAG(F_DF))    fprintf(stderr,"DN ");
++	else                        fprintf(stderr,"UP ");
++	if (ACCESS_FLAG(F_IF))    fprintf(stderr,"EI ");
++	else                        fprintf(stderr,"DI ");
++	if (ACCESS_FLAG(F_SF))    fprintf(stderr,"NG ");
++	else                        fprintf(stderr,"PL ");
++	if (ACCESS_FLAG(F_ZF))    fprintf(stderr,"ZR ");
++	else                        fprintf(stderr,"NZ ");
++	if (ACCESS_FLAG(F_AF))    fprintf(stderr,"AC ");
++	else                        fprintf(stderr,"NA ");
++	if (ACCESS_FLAG(F_PF))    fprintf(stderr,"PE ");
++	else                        fprintf(stderr,"PO ");
++	if (ACCESS_FLAG(F_CF))    fprintf(stderr,"CY ");
++	else                        fprintf(stderr,"NC ");
++	fprintf(stderr,"\n");
+ }
+--- libx86-1.1-r1.0/work/libx86-1.1/x86emu/ops.c	2006-10-30 23:11:13.000000000 +0300
++++ libx86-1.1-r1/work/libx86-1.1/x86emu/ops.c	2009-04-12 18:31:39.000000000 +0400
+@@ -73,6 +73,13 @@
+ 
+ #include "x86emu/x86emui.h"
+ 
++#include <stdio.h>
++#define DprintLn(fmt, args...) \
++    do { \
++       fprintf(stderr, "[%s:%u:%s] " fmt "\n", __FUNCTION__, __LINE__, __FILE__, ##args); \
++       /*fflush(stderr);*/ \
++    } while (0)
++
+ /*----------------------------- Implementation ----------------------------*/
+ 
+ /****************************************************************************
+@@ -7516,6 +7523,7 @@
+ {
+     int inc;
+ 
++    DprintLn("[ES:DI=%04X:%04X]=<AL/%02X> <CX=%04X>", M.x86.R_ES, M.x86.R_DI, M.x86.R_AL, M.x86.R_CX);
+     START_OF_INSTR();
+     DECODE_PRINTF("STOS\tBYTE\n");
+     if (ACCESS_FLAG(F_DF))   /* down */
+@@ -7538,6 +7546,7 @@
+     }
+     DECODE_CLEAR_SEGOVR();
+     END_OF_INSTR();
++    DprintLn("[ES:DI=%04X:%04X]=<AL/%02X> <CX=%04X>", M.x86.R_ES, M.x86.R_DI, M.x86.R_AL, M.x86.R_CX);
+ }
+ 
+ /****************************************************************************
+@@ -9504,7 +9513,8 @@
+     DECODE_PRINTF("LOOP\t");
+     ip = (s8) fetch_byte_imm();
+     ip += (s16) M.x86.R_IP;
+-    DECODE_PRINTF2("%04x\n", ip);
++    DECODE_PRINTF2("%04x\t", ip);
++    DECODE_PRINTF2("CX=%04X\n", M.x86.R_CX);
+     TRACE_AND_STEP();
+     M.x86.R_CX -= 1;
+     if (M.x86.R_CX != 0)
+@@ -9549,6 +9559,7 @@
+     DECODE_PRINTF2("%x,AL\n", port);
+     TRACE_AND_STEP();
+     M.x86.R_AL = (*sys_inb)(port);
++    DprintLn("AL=%02X port=%02X", M.x86.R_AL, port);
+     DECODE_CLEAR_SEGOVR();
+     END_OF_INSTR();
+ }
+@@ -9572,8 +9583,10 @@
+     TRACE_AND_STEP();
+     if (M.x86.mode & SYSMODE_PREFIX_DATA) {
+         M.x86.R_EAX = (*sys_inl)(port);
++        DprintLn("EAX=%02X port=%02X", M.x86.R_EAX, port);
+     } else {
+         M.x86.R_AX = (*sys_inw)(port);
++        DprintLn("AX=%02X port=%02X", M.x86.R_AX, port);
+     }
+     DECODE_CLEAR_SEGOVR();
+     END_OF_INSTR();
+@@ -9714,6 +9727,7 @@
+     DECODE_PRINTF("IN\tAL,DX\n");
+     TRACE_AND_STEP();
+     M.x86.R_AL = (*sys_inb)(M.x86.R_DX);
++    DprintLn("AL=%02X DX=%04X", M.x86.R_AL, M.x86.R_DX);
+     DECODE_CLEAR_SEGOVR();
+     END_OF_INSTR();
+ }
+@@ -9733,8 +9747,10 @@
+     TRACE_AND_STEP();
+     if (M.x86.mode & SYSMODE_PREFIX_DATA) {
+         M.x86.R_EAX = (*sys_inl)(M.x86.R_DX);
++        DprintLn("EAX=%02X DX=%04X", M.x86.R_EAX, M.x86.R_DX);
+     } else {
+         M.x86.R_AX = (*sys_inw)(M.x86.R_DX);
++        DprintLn("AX=%02X DX=%04X", M.x86.R_AX, M.x86.R_DX);
+     }
+     DECODE_CLEAR_SEGOVR();
+     END_OF_INSTR();
