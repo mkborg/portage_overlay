@@ -1,11 +1,11 @@
-# CopyRight 2009 Mikhail Krivtsov
+# Copyright 2009-2010, 2015, 2021 Mikhail Krivtsov
 # Distributed under the terms of the GNU General Public License v3
 
-inherit base
+EAPI=7
 
 DESCRIPTION="ReSpawn utility"
-HOMEPAGE="http://mk.pisem.net/"
-SRC_URI="http://mk.pisem.net/${P}.tar.bz2"
+HOMEPAGE="http://mkborg.github.io/"
+SRC_URI="http://mk.pisem.net/${P}.tar.xz"
 
 LICENSE="GPL-3"
 SLOT="0"
