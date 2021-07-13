@@ -1,7 +1,7 @@
 # Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=4
+EAPI=7
 
 inherit autotools eutils linux-info user
 
@@ -16,7 +16,9 @@ IUSE="+caps"
 
 RDEPEND="sys-apps/iproute2
 	dev-libs/judy
-	caps? ( sys-libs/libcap )"
+	caps? ( sys-libs/libcap )
+	acct-user/miredo
+	acct-group/miredo"
 DEPEND="${RDEPEND}
 	app-arch/xz-utils"
 
@@ -28,8 +30,9 @@ RESTRICT="test"
 DOCS=( AUTHORS ChangeLog NEWS README TODO THANKS )
 
 src_prepare() {
-	epatch "${FILESDIR}"/${PN}-1.2.5-configure-libcap.diff
-	epatch "${FILESDIR}"/${PN}-1.2.5-ip-path.patch
+	eapply "${FILESDIR}"/${PN}-1.2.5-configure-libcap.diff
+	eapply "${FILESDIR}"/${PN}-1.2.5-ip-path.patch
+	default
 	eautoreconf
 }
 
@@ -52,9 +55,4 @@ src_install() {
 
 	insinto /etc/miredo
 	doins misc/miredo-server.conf
-}
-
-pkg_preinst() {
-	enewgroup miredo
-	enewuser miredo -1 -1 /var/empty miredo
 }
