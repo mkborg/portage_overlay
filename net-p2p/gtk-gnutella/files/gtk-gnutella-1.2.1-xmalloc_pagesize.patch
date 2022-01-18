@@ -1,0 +1,35 @@
+commit c8e35a0a243d40e732bdeef9ccbf35fc120abf68
+Author: Mikhail I. Krivtsov <mikhail.krivtsov@gmail.com>
+Date:   Tue Jan 18 22:33:36 2022 +0300
+
+    Fix 'xmalloc_pagesize'
+    
+    On machine with non-4K page size (for example on 'Oracle Cloud' 64-bit ARM with 64K page size)
+    'xmalloc_chunk_allocate()' fails 'g_assert(xmalloc_chunk_is_valid()':
+    
+    (FATAL): Assertion failure in xmalloc_chunk_allocate() at lib/xmalloc.c:3921: "xmalloc_chunk_is_valid(xck)"
+    
+    'xmalloc_pagesize' variable used instead of hardcoded '4096' fixes the issue.
+
+diff --git a/src/lib/xmalloc.c b/src/lib/xmalloc.c
+index 1b1a5c94e..e98f657d6 100644
+--- a/src/lib/xmalloc.c
++++ b/src/lib/xmalloc.c
+@@ -3686,7 +3686,7 @@ xmalloc_chunk_tag(const struct xchunk *xck)
+ 	 *
+ 	 * 		xc_size <= XM_THREAD_MAXSIZE (512)
+ 	 * 		xc_stid < THREAD_MAX (64)
+-	 *		xc_capacity <= 4096 / 8 = 512
++	 *		xc_capacity <= xmalloc_pagesize / 8 = 512
+ 	 *
+ 	 * This makes the tag we compute below completely unique for a valid chunk,
+ 	 * with no collision possible.
+@@ -3735,7 +3735,7 @@ xmalloc_chunk_is_valid(const struct xchunk *xck)
+ 			(xck->xc_size <= XM_THREAD_MAXSIZE) +
+ 			(xck->xc_size != 0) +
+ 			(xmalloc_round(xck->xc_size) == xck->xc_size) +
+-			(xck->xc_capacity < 4096 / XMALLOC_ALIGNBYTES)	/* 4096 = page size */
++			(xck->xc_capacity < xmalloc_pagesize / XMALLOC_ALIGNBYTES)	/* xmalloc_pagesize = page size */
+ 		) &&
+ 		xmalloc_chunk_tag(xck) == xck->xc_tag &&
+ 		xmalloc_chunk_checksum(xck) == xck->xc_cksum;
