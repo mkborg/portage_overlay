@@ -1,0 +1,28 @@
+commit 962259ecba517fd9bf8d193ad516e2e4ec59dcd3
+Author: Mikhail I. Krivtsov <mikhail.krivtsov@gmail.com>
+Date:   Wed Jan 19 01:30:18 2022 +0300
+
+    Fix 'G_NORETURN redefined'
+    
+    Modern 'glib2' defines own 'G_NORETURN' resulting in many warnings
+    
+        warning: "G_NORETURN" redefined
+
+diff --git a/src/gcc.h b/src/gcc.h
+index 4740b4f2e..7092ad9ee 100644
+--- a/src/gcc.h
++++ b/src/gcc.h
+@@ -179,11 +179,13 @@
+  * registers before calling the routine.  However, this can mess up the
+  * stack unwinding past these routines.
+  */
++#if !defined(G_NORETURN)
+ #if defined(HASATTRIBUTE) && HAS_GCC(2, 4)
+ #define G_NORETURN __attribute__((__noreturn__))
+ #else
+ #define G_NORETURN
+ #endif	/* GCC >= 2.4 */
++#endif
+ 
+ #if defined(HASATTRIBUTE) && HAS_GCC(3, 0)
+ #define G_MALLOC __attribute__((__malloc__)) WARN_UNUSED_RESULT

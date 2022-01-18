@@ -29,6 +29,7 @@ BDEPEND="virtual/pkgconfig"
 PATCHES=(
     "${FILESDIR}/${P}-glibc234.patch"
     "${FILESDIR}/${P}-xmalloc_pagesize.patch"
+    "${FILESDIR}/${P}-G_NORETURN_redefined.patch"
 )
 
 src_prepare() {
