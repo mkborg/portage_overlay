@@ -1,0 +1,51 @@
+--- /src/c/Makefile-linux-aarch64-64.make	2022-01-22 15:09:36.000000000 +0300
++++ /src/c/Makefile-linux-aarch64-64.make.NONE	2022-01-22 15:07:34.000000000 +0300
+@@ -0,0 +1,48 @@
++# Copyright (c) 1999, 2014 Tanuki Software, Ltd.
++# http://www.tanukisoftware.com
++# All rights reserved.
++#
++# This software is the proprietary information of Tanuki Software.
++# You shall use it only in accordance with the terms of the
++# license agreement you entered into with Tanuki Software.
++# http://wrapper.tanukisoftware.com/doc/english/licenseOverview.html
++
++COMPILE = gcc -O3 -fPIC -Wall --pedantic -DLINUX -D_FILE_OFFSET_BITS=64 -fpic -D_GNU_SOURCE -DUNICODE -D_UNICODE -DJSW64
++
++INCLUDE=$(JAVA_HOME)/include
++
++DEFS = -I$(INCLUDE) -I$(INCLUDE)/linux
++
++wrapper_SOURCE = wrapper.c wrapperinfo.c wrappereventloop.c wrapper_unix.c property.c logger.c wrapper_file.c wrapper_i18n.c wrapper_hashmap.c
++
++libwrapper_so_OBJECTS = wrapper_i18n.o wrapperjni_unix.o wrapperinfo.o wrapperjni.o loggerjni.o
++
++BIN = ../../bin
++LIB = ../../lib
++
++all: init wrapper libwrapper.so
++
++clean:
++	rm -f *.o
++
++cleanall: clean
++	rm -rf *~ .deps
++	rm -f $(BIN)/wrapper $(LIB)/libwrapper.so
++
++init:
++	if test ! -d .deps; then mkdir .deps; fi
++
++wrapper: $(wrapper_SOURCE)
++	$(COMPILE) $(CFLAGS) $(LDFLAGS) -pthread $(wrapper_SOURCE) -lm -o $(BIN)/wrapper
++
++libwrapper.so: $(libwrapper_so_OBJECTS)
++	${COMPILE} $(LDFLAGS) -shared $(libwrapper_so_OBJECTS) -o $(LIB)/libwrapper.so
++
++%.o: %.c
++	@echo '$(COMPILE) $(CFLAGS) -c $<'; \
++	$(COMPILE) $(CFLAGS) $(DEFS) -Wp,-MD,.deps/$(*F).pp -c $<
++	@-cp .deps/$(*F).pp .deps/$(*F).P; \
++	tr ' ' '\012' < .deps/$(*F).pp \
++	| sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
++	>> .deps/$(*F).P; \
++	rm .deps/$(*F).pp
