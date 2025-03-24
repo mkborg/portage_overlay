@@ -1,8 +1,8 @@
 # Copyright 1999-2017 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=6
-inherit cmake-utils flag-o-matic multilib toolchain-funcs
+EAPI=8
+inherit cmake flag-o-matic multilib toolchain-funcs
 
 DESCRIPTION="PoDoFo is a C++ library to work with the PDF file format"
 HOMEPAGE="https://sourceforge.net/projects/podofo/"
@@ -26,9 +26,11 @@ RDEPEND="dev-lang/lua:=
 	media-libs/tiff:0=
 	sys-libs/zlib:="
 DEPEND="${RDEPEND}
-	virtual/pkgconfig
-	boost? ( dev-util/boost-build )
-	test? ( dev-util/cppunit )"
+	test? ( dev-util/cppunit )
+"
+
+BDEPEND="virtual/pkgconfig
+	boost? ( dev-libs/boost )"
 
 PATCHES=(
         ${FILESDIR}/non_existing_directory.patch
@@ -50,7 +52,7 @@ PATCHES=(
 DOCS="AUTHORS ChangeLog TODO"
 
 src_prepare() {
-	cmake-utils_src_prepare
+	cmake_src_prepare
 	local x sed_args
 
 	# The 0.9.6 ABI is not necessarily stable, so make PODOFO_SOVERSION
@@ -152,7 +154,7 @@ src_configure() {
 		-DPODOFO_BUILD_LIB_ONLY=$(usex tools OFF ON)
 		)
 
-	cmake-utils_src_configure
+	cmake_src_configure
 }
 
 src_test() {
