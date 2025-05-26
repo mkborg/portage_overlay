@@ -1,0 +1,11 @@
+--- a/src/if.c	2004-09-07 05:50:01.000000000 +0400
++++ b/src/if.c	2025-05-26 17:31:23.909494453 +0300
+@@ -65,7 +65,7 @@
+  * This shouldn't be needed since the modem is blocking and
+  * we don't expect any signals, but what the hell..
+  */
+-inline int
++int
+ writen(fd, bptr, n)
+ 	int fd;
+ 	char *bptr;

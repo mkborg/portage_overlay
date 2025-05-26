@@ -1,0 +1,31 @@
+--- a/src/misc.c	2025-05-26 17:38:41.519996994 +0300
++++ b/src/misc.c	2025-05-26 17:39:54.506078128 +0300
+@@ -10,6 +10,10 @@
+ #include <assert.h>
+ #include "debug.h"
+ 
++#ifndef MIN
++#define MIN(a, b)       ((a) < (b)? (a): (b))
++#endif
++
+ u_int curtime, time_fasttimo, last_slowtimo, detach_time;
+ u_int detach_wait = 600000;	/* 10 minutes */
+ 
+@@ -104,7 +108,7 @@
+ 	struct quehead *qh_rlink;
+ };
+ 
+-inline void
++void
+ insque(a, b)
+ 	void *a, *b;
+ {
+@@ -117,7 +121,7 @@
+ 	= (struct quehead *)element;
+ }
+ 
+-inline void
++void
+ remque(a)
+      void *a;
+ {

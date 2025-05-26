@@ -1,0 +1,11 @@
+--- a/src/Makefile.in	2025-05-26 01:19:59.989903397 +0300
++++ b/src/Makefile.in	2025-05-26 01:44:04.104880404 +0300
+@@ -67,7 +67,7 @@
+ clean: objclean
+ 	rm -f slirp core slirp.core core.slirp
+ 
+-${srcdir}/configure: ${srcdir}/configure.in
++${srcdir}/configure: ${srcdir}/configure.ac
+ 	cd ${srcdir} && autoconf || touch ${srcdir}/configure
+ 
+ Makefile: ${srcdir}/Makefile.in config.status
