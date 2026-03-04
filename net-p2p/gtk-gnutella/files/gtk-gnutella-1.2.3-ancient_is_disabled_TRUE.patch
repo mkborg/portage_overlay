@@ -1,0 +1,14 @@
+--- a/src/ui/gtk/main.c	2024-03-03 15:12:32.000000000 +0300
++++ b/src/ui/gtk/main.c	2026-03-05 00:28:12.844403497 +0300
+@@ -839,7 +839,11 @@
+ bool
+ main_gui_ancient_is_disabled(void)
+ {
++#if 1
++	return TRUE;
++#else
+ 	return opt_ancien_is_disabled;
++#endif
+ }
+ 
+ void
